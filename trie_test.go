@@ -1,8 +1,11 @@
 package cidranger
 
 import (
+	"fmt"
 	"net"
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	rnet "github.com/yl2chen/cidranger/net"
@@ -83,19 +86,191 @@ func TestPrefixTrieInsert(t *testing.T) {
 	}
 }
 
-func TestPrefixTrieString(t *testing.T) {
-	inserts := []string{"192.168.0.1/24", "192.168.1.1/24", "192.168.1.1/30"}
-	trie := newPrefixTree(rnet.IPv4).(*prefixTrie)
-	for _, insert := range inserts {
-		_, network, _ := net.ParseCIDR(insert)
-		trie.Insert(NewBasicRangerEntry(*network))
+// @VENKAT: Increase/Decrease Route Scale
+const (
+	TEST_BENCHMARK_SCALE_NUMBER = 50000
+)
+
+var (
+	v4prefix  []*net.IPNet
+	v6prefix  []*net.IPNet
+)
+
+func createPatriciaV4Keys() {
+	// insert v4 route entries
+	intByt2 := 1
+	intByt3 := 1
+	intByt1 := 22
+	byte4 := "0/24"
+	for n := uint32(0); n < uint32(TEST_BENCHMARK_SCALE_NUMBER); n++ {
+		if intByt2 > 253 && intByt3 > 254 {
+			intByt1++
+			intByt2 = 1
+			intByt3 = 1
+
+		}
+		if intByt3 > 254 {
+			intByt3 = 1
+			intByt2++
+
+		} else {
+			intByt3++
+
+		}
+		if intByt2 > 254 {
+			intByt2 = 1
+
+		}
+		byte1 := strconv.Itoa(intByt1)
+		byte2 := strconv.Itoa(intByt2)
+		byte3 := strconv.Itoa(intByt3)
+		rtNet := byte1 + "." + byte2 + "." + byte3 + "." + byte4
+		_, network, _ := net.ParseCIDR(rtNet)
+
+		// @VENKAT:: Uncomment this to print ip addresses
+		//fmt.Println("rtNet: ", rtNet, network)
+		v4prefix = append(v4prefix, network)
+
 	}
-	expected := `0.0.0.0/0 (target_pos:31:has_entry:false)
-| 1--> 192.168.0.0/23 (target_pos:8:has_entry:false)
-| | 0--> 192.168.0.0/24 (target_pos:7:has_entry:true)
-| | 1--> 192.168.1.0/24 (target_pos:7:has_entry:true)
-| | | 0--> 192.168.1.0/30 (target_pos:1:has_entry:true)`
-	assert.Equal(t, expected, trie.String())
+	fmt.Println("V4 Prefix set:", len(v4prefix), "SubnetMask: ", byte4)
+}
+
+func TestPrefixTrieV4String(t *testing.T) {
+	createPatriciaV4Keys()
+	//inserts := []string{"192.168.0.1/24", "192.168.1.1/24", "192.168.1.1/30"}
+	var contains bool
+	startTime := time.Now()
+	trie := newPrefixTree(rnet.IPv4).(*prefixTrie)
+	for _, pfx := range v4prefix {
+		//_, network, _ := net.ParseCIDR(insert)
+		contains, _ = trie.Contains(pfx.IP)
+		if contains == false {
+			trie.Insert(NewBasicRangerEntry(*pfx))
+
+		}
+	}
+	timeNow := time.Now()
+	elapsedTime := timeNow.Sub(startTime)
+	fmt.Println("elapsedTime V4Prefix Inserts:", elapsedTime, TEST_BENCHMARK_SCALE_NUMBER)
+	/*
+	   	expected := `0.0.0.0/0 (target_pos:31:has_entry:false)
+	   | 1--> 192.168.0.0/23 (target_pos:8:has_entry:false)
+	   | | 0--> 192.168.0.0/24 (target_pos:7:has_entry:true)
+	   | | 1--> 192.168.1.0/24 (target_pos:7:has_entry:true)
+	   | | | 0--> 192.168.1.0/30 (target_pos:1:has_entry:true)`
+	   	assert.Equal(t, expected, trie.String())
+	*/
+
+	// @VENKAT:: Uncomment this to print the trie
+	//fmt.Println("trie: ", trie.String())
+	
+	startTime = time.Now()
+	for _, pfx := range v4prefix {
+	    contains, _ := trie.Contains(pfx.IP)
+		if contains == true {
+			_, err := trie.Remove(*pfx)
+			if err != nil {
+			    fmt.Println("Failed to remove: ", *pfx)
+			}
+		}
+	}
+	timeNow = time.Now()
+	elapsedTime = timeNow.Sub(startTime)
+	fmt.Println("elapsedTime V4Prefix Remove:", elapsedTime, TEST_BENCHMARK_SCALE_NUMBER)
+
+	// @VENKAT:: Uncomment this to print the trie
+	//fmt.Println("v4trie After Remove: ", trie.String())
+}
+
+func createPatriciaV6Keys() {
+	// insert v6 route entries
+	intByt2 := 10
+	intByt3 := 10
+	intByt1 := 10
+	byte4 := "0/128"
+	for n := uint32(0); n < uint32(TEST_BENCHMARK_SCALE_NUMBER); n++ {
+		if intByt2 > 253 && intByt3 > 254 {
+			intByt1++
+			intByt2 = 1
+			intByt3 = 1
+
+		}
+		if intByt3 > 254 {
+			intByt3 = 1
+			intByt2++
+
+		} else {
+			intByt3++
+
+		}
+		if intByt2 > 254 {
+			intByt2 = 1
+
+		}
+
+		byte1 := strconv.Itoa(intByt1)
+		byte2 := strconv.Itoa(intByt2)
+		byte3 := strconv.Itoa(intByt3)
+		rtNet := byte1 + ":" + byte2 + ":" + byte3 + "::" + byte4
+		_, network, _ := net.ParseCIDR(rtNet)
+		if network == nil {
+		    fmt.Println("Invalid IP: ", rtNet)
+		    panic(network)
+		}
+
+		// @venkat:: Uncomment this to print ip addresses
+		//fmt.Println("rtNet: ", rtNet, network)
+		v6prefix = append(v6prefix, network)
+
+	}
+	fmt.Println("V6 Prefix set:", len(v6prefix), "SubnetMask: ", byte4)
+}
+
+func TestPrefixTrieV6String(t *testing.T) {
+	createPatriciaV6Keys()
+	//inserts := []string{"192.168.0.1/24", "192.168.1.1/24", "192.168.1.1/30"}
+	startTime := time.Now()
+	trie := newPrefixTree(rnet.IPv6).(*prefixTrie)
+	for _, pfx := range v6prefix {
+	    contains, _ := trie.Contains(pfx.IP)
+		if contains == false {
+			trie.Insert(NewBasicRangerEntry(*pfx))
+
+		}
+	}
+	timeNow := time.Now()
+	elapsedTime := timeNow.Sub(startTime)
+	fmt.Println("elapsedTime V6Prefix Inserts:", elapsedTime, TEST_BENCHMARK_SCALE_NUMBER)
+
+	/*
+	   	expected := `0.0.0.0/0 (target_pos:31:has_entry:false)
+	   | 1--> 192.168.0.0/23 (target_pos:8:has_entry:false)
+	   | | 0--> 192.168.0.0/24 (target_pos:7:has_entry:true)
+	   | | 1--> 192.168.1.0/24 (target_pos:7:has_entry:true)
+	   | | | 0--> 192.168.1.0/30 (target_pos:1:has_entry:true)`
+	   	assert.Equal(t, expected, trie.String())
+	*/
+	// @venkat:: uncomment this to print the trie
+	//fmt.Println("trie: ", trie.String())
+	
+	startTime = time.Now()
+	for _, pfx := range v6prefix {
+	    contains, _ := trie.Contains(pfx.IP)
+		if contains == true {
+			trie.Remove(*pfx)
+		}
+	}
+	timeNow = time.Now()
+	elapsedTime = timeNow.Sub(startTime)
+	fmt.Println("elapsedTime V6Prefix Remove:", elapsedTime, TEST_BENCHMARK_SCALE_NUMBER)
+
+	// @venkat:: uncomment this to print the trie
+	//fmt.Println("v6trie After Remove: ", trie.String())
+}
+
+func TestPrefixTrieOperations(t *testing.T) {
+    TestPrefixTrieV4String(t)
+    TestPrefixTrieV6String(t)
 }
 
 func TestPrefixTrieRemove(t *testing.T) {
