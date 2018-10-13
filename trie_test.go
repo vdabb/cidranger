@@ -101,7 +101,7 @@ func createPatriciaV4Keys() {
 	intByt2 := 1
 	intByt3 := 1
 	intByt1 := 22
-	byte4 := "0/24"
+	byte4 := "0/24" // @VENKAT: control prefix here
 	for n := uint32(0); n < uint32(TEST_BENCHMARK_SCALE_NUMBER); n++ {
 		if intByt2 > 253 && intByt3 > 254 {
 			intByt1++
@@ -187,7 +187,7 @@ func createPatriciaV6Keys() {
 	intByt2 := 10
 	intByt3 := 10
 	intByt1 := 10
-	byte4 := "0/128"
+	byte4 := "0/128" // @venkat: control prefix here
 	for n := uint32(0); n < uint32(TEST_BENCHMARK_SCALE_NUMBER); n++ {
 		if intByt2 > 253 && intByt3 > 254 {
 			intByt1++
